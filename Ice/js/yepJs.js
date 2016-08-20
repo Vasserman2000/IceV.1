@@ -7,6 +7,25 @@ var map;
 var _loginState = getLoginStatus(_userID, _token);
 var defualtErr = function(err){alert(err);};
 
+//registration
+
+function register() {
+    WebServiceURL = "IceWS.asmx";
+    $.support.cors = true;
+    $.ajax({
+        url: WebServiceURL + "/signUp",
+        dataType: "json", //The type of data that you're expecting back from the server
+        type: "POST",
+        data: "{'FirstName': '" + $("#Text1").val() + "', 'LastName': '" + $("#Text2").val() + "', 'Email': '" + $("#Text3").val() + "', 'Password': '" + $("#Text4").val() +"', 'City': '" + $("#Text5").val() + "', 'Address': '" + $("#Text6").val() + "' }",
+        contentType: "application/json; charset=utf-8",
+        error: function (jqXHR, textStatus) {
+            alert((JSON.parse(jqXHR.responseText)).d);
+        },
+        success: function (data) {
+            alert(data["d"]);
+        }
+    });
+}
 
 function getLoginStatus(_userID,_token){
     if(_userID == undefined || _userID == "" || _token == "" || _token == undefined)
@@ -258,6 +277,8 @@ function sliderStart(pageIdWithHash){
 		});
 	},3000);
 } // func recive page id and init its slider.
+
+
 
 
 	

@@ -7,6 +7,8 @@ using System.Linq;
 using System.Text;
 using System.Web;
 using System.Web.Services;
+using System.Net.Http;
+using System.Net;
 
 /// <summary>
 /// Summary description for IceWS
@@ -55,6 +57,7 @@ public class IceWS : System.Web.Services.WebService
                 if (dr.Read())
                     res = dr[0].ToString();
                 dr.Close();
+
             }
         }
         return res;
@@ -87,27 +90,27 @@ public class IceWS : System.Web.Services.WebService
             return null;
 
         string sp = "sp_getSession";
-        Dictionary<string,string> _params = new Dictionary<string,string>();
-        _params.Add("param1","@userAccount");
-        _params.Add("value1",UserID.ToString());
-        return ConvertTableToJsonList(getTable(sp,_params).Tables[0]);
-      }
+        Dictionary<string, string> _params = new Dictionary<string, string>();
+        _params.Add("param1", "@userAccount");
+        _params.Add("value1", UserID.ToString());
+        return ConvertTableToJsonList(getTable(sp, _params).Tables[0]);
+    }
 
-    
+
     [WebMethod]
     public string GetYepBranches()
     {
         //comment 
         string sp = "sp_getBranches";
-        return ConvertTableToJsonList(getTable(sp,null).Tables[0]);
+        return ConvertTableToJsonList(getTable(sp, null).Tables[0]);
         //comment(2)
     }
 
     [WebMethod]
     public string GetUserOrders(string UserId)
     {
-        var param = new Dictionary<string,string>();
-        param.Add("value1",UserId);
+        var param = new Dictionary<string, string>();
+        param.Add("value1", UserId);
         param.Add("param1", "@userAccount");
         string sp = "sp_getOrders";
         return ConvertTableToJsonList(getTable(sp, param).Tables[0]);
@@ -132,7 +135,7 @@ public class IceWS : System.Web.Services.WebService
     public List<Yep> GetProducts()
     {
         string sp = "sp_getProducts";
-        return ConvertDataToString(getTable(sp,null));
+        return ConvertDataToString(getTable(sp, null));
     }
 
     [WebMethod]
@@ -153,11 +156,11 @@ public class IceWS : System.Web.Services.WebService
     public List<Yep> GetFlavors()
     {
         string sp = "sp_getFlavors";
-        return ConvertDataToString(getTable(sp,null));
+        return ConvertDataToString(getTable(sp, null));
     }
 
 
-    private DataSet getTable(string storedProcedure,Dictionary<string,string> param)
+    private DataSet getTable(string storedProcedure, Dictionary<string, string> param)
     {
         //DataTable dt = new DataTable();
         DataSet ds = new DataSet();//
@@ -168,9 +171,9 @@ public class IceWS : System.Web.Services.WebService
                 cmd.CommandType = CommandType.StoredProcedure;
                 if (param != null)
                 {
-                    for (var i = 1; i <= param.Count/2; i++ )
+                    for (var i = 1; i <= param.Count / 2; i++)
                     {
-                        cmd.Parameters.AddWithValue(param["param"+i], param["value"+i]);
+                        cmd.Parameters.AddWithValue(param["param" + i], param["value" + i]);
                     }
                 }
                 con.Open();
@@ -228,19 +231,87 @@ public class IceWS : System.Web.Services.WebService
             foreach (DataRow dr in dt.Rows)
             {
                 Yep row;
-               // row = new Dictionary<string, object>();
+                // row = new Dictionary<string, object>();
                 foreach (DataColumn col in dt.Columns)
                 {
                     row = new Yep(col.ColumnName, dr[col]);
                     //row.Add(col.ColumnName, dr[col]);
                     rows.Add(row);
                 }
-                
+
             }
         }
         return rows;
     }
+
+
+    /***** REEGISTRATION *****/
+
+    [WebMethod]
+    public string signUp(string FirstName, string LastName, string Email, string Password, string City, string Address)
+    {
+        bool Success = false;
+        if (UserValidate(FirstName, LastName, Email, Password, City, Address))
+        {
+            if (IsExist(Email))
+            {
+                Context.Response.StatusCode = 400; //invokes 'error' inside ajax call
+                return Context.Response.StatusDescription =
+                    "The email address you entered already exists in our data base. Please choose another email address.";
+            }
+            else
+            {
+                SqlConnection con = new SqlConnection(conStr);
+                SqlCommand cmd = new SqlCommand("proc_addUser", con);
+                cmd.CommandType = CommandType.StoredProcedure;
+                cmd.Parameters.AddWithValue("@FirstName", FirstName);
+                cmd.Parameters.AddWithValue("@LastName", LastName);
+                cmd.Parameters.AddWithValue("@Email", Email);
+                cmd.Parameters.AddWithValue("@Password", Password);
+                cmd.Parameters.AddWithValue("@Role", "buyer");
+                cmd.Parameters.AddWithValue("@City", City);
+                cmd.Parameters.AddWithValue("@Address", Address);
+                con.Open();
+                Success = Convert.ToBoolean(cmd.ExecuteNonQuery());
+                con.Close();
+            }
+        }
+        return "Registration Successful";
+    }
+
+    public bool UserValidate(string FirstName, string LastName, string Email, string Password, string City, string Address)
+    {
+        if (
+            (FirstName != null && !("".Equals(FirstName))) &&
+            (LastName != null && !("".Equals(LastName))) &&
+            (Email != null && !("".Equals(Email))) &&
+            (Password != null && !("".Equals(Password))) &&
+            (City != null && !("".Equals(City))) &&
+            (Address != null && !("".Equals(Address)))
+            )
+            return true;
+        return false;
+    }
+
+    public bool IsExist(string Email)
+    {
+        bool isDuplicate = false; //indicates existence of entered (by user) email address
+        SqlConnection con = new SqlConnection(conStr);
+        SqlCommand cmd = new SqlCommand("sp_verifyEmailExistanceInDb", con);
+        cmd.CommandType = CommandType.StoredProcedure;
+        cmd.Parameters.AddWithValue("@UserInputedEmail", Email);
+        SqlParameter outParam = new SqlParameter("@IsExist", SqlDbType.Int);
+        outParam.Direction = ParameterDirection.Output;
+        cmd.Parameters.Add(outParam);
+        con.Open();
+        SqlDataReader reader = cmd.ExecuteReader(); // executes stored procedure
+        isDuplicate = Convert.ToBoolean(outParam.Value);
+        con.Close();
+        return isDuplicate;
+    }
 }
+
+
 
 public class Yep
 {
@@ -249,7 +320,7 @@ public class Yep
     }
     public string colName { get; set; }
     public object value { get; set; }
-    public Yep (string colName, object value) { this.colName = colName; this.value = value; }
+    public Yep(string colName, object value) { this.colName = colName; this.value = value; }
 }
 
 
