@@ -250,30 +250,33 @@ public class IceWS : System.Web.Services.WebService
     [WebMethod]
     public string signUp(string FirstName, string LastName, string Email, string Password, string City, string Address)
     {
-        bool Success = false;
+        bool isExist = false;
         if (UserValidate(FirstName, LastName, Email, Password, City, Address))
         {
-            if (IsExist(Email))
+            SqlConnection con = new SqlConnection(conStr);
+            SqlCommand cmd = new SqlCommand("sp_signUp", con);
+            SqlParameter outParameter;
+            SqlDataReader reader;
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@FirstName", FirstName);
+            cmd.Parameters.AddWithValue("@LastName", LastName);
+            cmd.Parameters.AddWithValue("@UserInputedEmail", Email);
+            cmd.Parameters.AddWithValue("@Password", Password);
+            cmd.Parameters.AddWithValue("@Role", "buyer");
+            cmd.Parameters.AddWithValue("@City", City);
+            cmd.Parameters.AddWithValue("@Address", Address);
+            outParameter = new SqlParameter("@IsExist", SqlDbType.Int);
+            outParameter.Direction = ParameterDirection.Output;
+            cmd.Parameters.Add(outParameter);
+            con.Open();
+            reader = cmd.ExecuteReader(); // executes stored procedure
+            isExist = Convert.ToBoolean(outParameter.Value);
+            con.Close();
+            if (isExist)
             {
                 Context.Response.StatusCode = 400; //invokes 'error' inside ajax call
                 return Context.Response.StatusDescription =
                     "The email address you entered already exists in our data base. Please choose another email address.";
-            }
-            else
-            {
-                SqlConnection con = new SqlConnection(conStr);
-                SqlCommand cmd = new SqlCommand("proc_addUser", con);
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@FirstName", FirstName);
-                cmd.Parameters.AddWithValue("@LastName", LastName);
-                cmd.Parameters.AddWithValue("@Email", Email);
-                cmd.Parameters.AddWithValue("@Password", Password);
-                cmd.Parameters.AddWithValue("@Role", "buyer");
-                cmd.Parameters.AddWithValue("@City", City);
-                cmd.Parameters.AddWithValue("@Address", Address);
-                con.Open();
-                Success = Convert.ToBoolean(cmd.ExecuteNonQuery());
-                con.Close();
             }
         }
         return "Registration Successful";
@@ -296,17 +299,7 @@ public class IceWS : System.Web.Services.WebService
     public bool IsExist(string Email)
     {
         bool isDuplicate = false; //indicates existence of entered (by user) email address
-        SqlConnection con = new SqlConnection(conStr);
-        SqlCommand cmd = new SqlCommand("sp_verifyEmailExistanceInDb", con);
-        cmd.CommandType = CommandType.StoredProcedure;
-        cmd.Parameters.AddWithValue("@UserInputedEmail", Email);
-        SqlParameter outParam = new SqlParameter("@IsExist", SqlDbType.Int);
-        outParam.Direction = ParameterDirection.Output;
-        cmd.Parameters.Add(outParam);
-        con.Open();
-        SqlDataReader reader = cmd.ExecuteReader(); // executes stored procedure
-        isDuplicate = Convert.ToBoolean(outParam.Value);
-        con.Close();
+        
         return isDuplicate;
     }
 }
